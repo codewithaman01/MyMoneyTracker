@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
@@ -151,7 +152,8 @@ fun SectionCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.
 fun ProgressLine(fraction: Float, label: String, danger: Boolean = false) {
     Column(Modifier.semantics { contentDescription = label }) {
         LinearProgressIndicator(progress = { fraction.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().height(8.dp),
-            color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+            color = if (danger || fraction >= 1f) MaterialTheme.colorScheme.error
+                else if (fraction >= 0.7f) Color(0xFFF59E0B) else MaterialTheme.colorScheme.primary)
         Text(label, style = MaterialTheme.typography.bodySmall)
     }
 }

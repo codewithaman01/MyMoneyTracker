@@ -39,10 +39,25 @@ fun DashboardScreen(vm: AppViewModel) {
         item { Text("My Money Tracker", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 0.dp)) }
         item { MonthNav(ym) { vm.month.value = it } }
         item {
-            SectionCard {
-                Text("Remaining balance", style = MaterialTheme.typography.labelLarge)
-                Text(m(s.remaining), style = MaterialTheme.typography.displaySmall,
-                    color = if (s.remaining < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+            val spentFrac = if (s.totalIncome > 0L) s.totalOutflow.toFloat() / s.totalIncome.toFloat() else 0f
+            Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) {
+                Column(Modifier.padding(20.dp)) {
+                    Text("Left this month", style = MaterialTheme.typography.labelLarge)
+                    Text(m(s.remaining), style = MaterialTheme.typography.displayMedium,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        color = if (s.remaining < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onPrimaryContainer)
+                    Spacer(Modifier.height(12.dp))
+                    ProgressLine(spentFrac,
+                        if (s.totalIncome > 0L) "${(spentFrac * 100).toInt()}% of income spent" else "No income added yet",
+                        danger = s.remaining < 0)
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column { Text("Income", style = MaterialTheme.typography.labelMedium); Text(m(s.totalIncome), style = MaterialTheme.typography.titleMedium) }
+                        Column(horizontalAlignment = Alignment.End) { Text("Spent", style = MaterialTheme.typography.labelMedium); Text(m(s.totalOutflow), style = MaterialTheme.typography.titleMedium) }
+                    }
+                }
             }
         }
         item {

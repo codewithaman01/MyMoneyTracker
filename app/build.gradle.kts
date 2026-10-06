@@ -16,6 +16,14 @@ android {
         versionCode = 1
         versionName = "1.0"
     }
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("mmt-debug.keystore")
+            storePassword = "android"
+            keyAlias = "mmt"
+            keyPassword = "android"
+        }
+    }
     buildTypes {
         release { isMinifyEnabled = false }
     }
