@@ -1,6 +1,8 @@
 package com.mymoney.tracker.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,6 +12,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.mymoney.tracker.data.entity.*
 import com.mymoney.tracker.domain.LoanMath
@@ -35,49 +40,71 @@ fun DashboardScreen(vm: AppViewModel) {
     val health = MonthlyEngine.health(s, s.rent + s.emi + s.loan)
     val food = s.categoryTotals["Food"] ?: 0L
     val travel = s.categoryTotals["Travel"] ?: 0L
+    val spentFrac = if (s.totalIncome > 0L) s.totalOutflow.toFloat() / s.totalIncome.toFloat() else 0f
+    val intro = animatedFraction(1f, 1000)
+    val barFrac = animatedFraction(spentFrac.coerceIn(0f, 1f), 1100).coerceIn(0f, 1f)
+    fun shown(v: Long): String = m(if (intro >= 0.999f) v else (v * intro).toLong())
+    val soft = Color.White.copy(alpha = 0.85f)
+    val bold = androidx.compose.ui.text.font.FontWeight.Bold
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 96.dp)) {
-        item { Text("My Money Tracker", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 0.dp)) }
+        item { Reveal(0) { Text("My Money Tracker", style = MaterialTheme.typography.headlineSmall, fontWeight = bold,
+            modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 0.dp)) } }
         item { MonthNav(ym) { vm.month.value = it } }
         item {
-            val spentFrac = if (s.totalIncome > 0L) s.totalOutflow.toFloat() / s.totalIncome.toFloat() else 0f
-            Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer)) {
-                Column(Modifier.padding(20.dp)) {
-                    Text("Left this month", style = MaterialTheme.typography.labelLarge)
-                    Text(m(s.remaining), style = MaterialTheme.typography.displayMedium,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        color = if (s.remaining < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onPrimaryContainer)
-                    Spacer(Modifier.height(12.dp))
-                    ProgressLine(spentFrac,
-                        if (s.totalIncome > 0L) "${(spentFrac * 100).toInt()}% of income spent" else "No income added yet",
-                        danger = s.remaining < 0)
-                    Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column { Text("Income", style = MaterialTheme.typography.labelMedium); Text(m(s.totalIncome), style = MaterialTheme.typography.titleMedium) }
-                        Column(horizontalAlignment = Alignment.End) { Text("Spent", style = MaterialTheme.typography.labelMedium); Text(m(s.totalOutflow), style = MaterialTheme.typography.titleMedium) }
+            Reveal(1) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFF0B5F58), Color(0xFF14B8A6))))
+                    .padding(22.dp)) {
+                    Column {
+                        Text("Left this month", style = MaterialTheme.typography.labelLarge, color = soft)
+                        Text(shown(s.remaining), style = MaterialTheme.typography.displayMedium, fontWeight = bold,
+                            color = if (s.remaining < 0) Color(0xFFFFB4AB) else Color.White)
+                        Spacer(Modifier.height(14.dp))
+                        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.25f))) {
+                            Box(Modifier.fillMaxWidth(barFrac).fillMaxHeight().background(
+                                if (spentFrac >= 1f) Color(0xFFFFB4AB) else if (spentFrac >= 0.7f) Color(0xFFFFD27A) else Color.White))
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(if (s.totalIncome > 0L) "${(spentFrac * 100).toInt()}% of income spent" else "No income added yet",
+                            style = MaterialTheme.typography.bodySmall, color = soft)
+                        Spacer(Modifier.height(14.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column {
+                                Text("Income", style = MaterialTheme.typography.labelMedium, color = soft)
+                                Text(shown(s.totalIncome), style = MaterialTheme.typography.titleMedium, fontWeight = bold, color = Color.White)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("Spent", style = MaterialTheme.typography.labelMedium, color = soft)
+                                Text(shown(s.totalOutflow), style = MaterialTheme.typography.titleMedium, fontWeight = bold, color = Color.White)
+                            }
+                        }
                     }
                 }
             }
         }
         item {
-            SectionCard {
-                StatRow("Total income", m(s.totalIncome))
-                StatRow("Total expenses", m(s.totalExpenses))
-                StatRow("Total EMI", m(s.emi))
-                StatRow("Loan payments", m(s.loan))
-                StatRow("Debt payments", m(s.debtPayments))
-                HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                StatRow("Rent", m(s.rent))
-                StatRow("Food", m(food))
-                StatRow("Travel", m(travel))
-                StatRow("Savings (all goals)", m(goals.sumOf { it.currentAmount }))
+            Reveal(2) {
+                SectionCard {
+                    StatRow("Total income", m(s.totalIncome))
+                    StatRow("Total expenses", m(s.totalExpenses))
+                    StatRow("Total EMI", m(s.emi))
+                    StatRow("Loan payments", m(s.loan))
+                    StatRow("Debt payments", m(s.debtPayments))
+                    HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                    StatRow("Rent", m(s.rent))
+                    StatRow("Food", m(food))
+                    StatRow("Travel", m(travel))
+                    StatRow("Savings (all goals)", m(goals.sumOf { it.currentAmount }))
+                }
             }
         }
         if (health.warnings.isNotEmpty()) item {
-            SectionCard {
-                health.warnings.forEach { Text("• $it", modifier = Modifier.padding(vertical = 2.dp)) }
-                health.savingsRatePct?.let { Text("Savings rate $it%  ·  EMI burden ${health.emiBurdenPct ?: 0}%", style = MaterialTheme.typography.bodySmall) }
+            Reveal(3) {
+                SectionCard {
+                    health.warnings.forEach { Text("• $it", modifier = Modifier.padding(vertical = 2.dp)) }
+                    health.savingsRatePct?.let { Text("Savings rate $it%  ·  EMI burden ${health.emiBurdenPct ?: 0}%", style = MaterialTheme.typography.bodySmall) }
+                }
             }
         }
         if (s.totalIncome == 0L && s.totalOutflow == 0L) item { EmptyHint("Nothing here yet.\nTap + to add income, an expense, an EMI…") }

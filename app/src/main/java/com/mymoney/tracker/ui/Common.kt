@@ -1,6 +1,13 @@
 package com.mymoney.tracker.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -146,12 +153,36 @@ fun StatRow(label: String, value: String, bold: Boolean = false) =
 
 @Composable
 fun SectionCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
-    Card(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) { Column(Modifier.padding(16.dp), content = content) }
+    Card(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(20.dp), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+        Column(Modifier.padding(16.dp), content = content)
+    }
+
+/** Runs from 0 up to [target] when first shown, and animates again whenever [target] changes. */
+@Composable
+fun animatedFraction(target: Float, ms: Int = 900): Float {
+    var go by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { go = true }
+    val v by animateFloatAsState(if (go) target else 0f, tween(ms), label = "anim")
+    return v
+}
+
+/** Fades and slides its content up when first shown; [index] staggers the delay. */
+@Composable
+fun Reveal(index: Int = 0, content: @Composable () -> Unit) {
+    val state = remember { MutableTransitionState(false).apply { targetState = true } }
+    AnimatedVisibility(visibleState = state,
+        enter = fadeIn(tween(450, delayMillis = index * 90)) +
+            slideInVertically(tween(450, delayMillis = index * 90)) { it / 6 }) {
+        content()
+    }
+}
 
 @Composable
 fun ProgressLine(fraction: Float, label: String, danger: Boolean = false) {
+    val shownFrac = animatedFraction(fraction.coerceIn(0f, 1f), 800)
     Column(Modifier.semantics { contentDescription = label }) {
-        LinearProgressIndicator(progress = { fraction.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth().height(8.dp),
+        LinearProgressIndicator(progress = { shownFrac }, modifier = Modifier.fillMaxWidth().height(8.dp),
             color = if (danger || fraction >= 1f) MaterialTheme.colorScheme.error
                 else if (fraction >= 0.7f) Color(0xFFF59E0B) else MaterialTheme.colorScheme.primary)
         Text(label, style = MaterialTheme.typography.bodySmall)
