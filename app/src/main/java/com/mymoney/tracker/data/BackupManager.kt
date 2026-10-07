@@ -27,7 +27,8 @@ data class BackupFile(
     val debtPayments: List<DebtPayment> = emptyList(),
     val budgets: List<Budget> = emptyList(),
     val savingsGoals: List<SavingsGoal> = emptyList(),
-    val scheduledChanges: List<ScheduledChange> = emptyList()
+    val scheduledChanges: List<ScheduledChange> = emptyList(),
+    val extras: String = ""
 )
 
 /** Local-only backup. Files are written/read through the system file picker; nothing is uploaded. */
@@ -41,7 +42,8 @@ object BackupManager {
         emis = db.emiDao().snapshot(), emiPayments = db.emiDao().allPayments(),
         loans = db.loanDao().snapshot(), loanPayments = db.loanDao().allPayments(),
         debts = db.debtDao().snapshot(), debtPayments = db.debtDao().allPayments(),
-        budgets = db.budgetDao().snapshot(), savingsGoals = db.savingsDao().snapshot(), scheduledChanges = db.changeDao().snapshot())
+        budgets = db.budgetDao().snapshot(), savingsGoals = db.savingsDao().snapshot(), scheduledChanges = db.changeDao().snapshot(),
+        extras = com.mymoney.tracker.extras.ExtrasStore.exportJson())
 
     fun toJson(b: BackupFile): String = json.encodeToString(b)
 
@@ -96,6 +98,7 @@ object BackupManager {
                     lockTimeoutMinutes = current?.lockTimeoutMinutes ?: 0)
                 db.settingsDao().save(s)
             }
+            com.mymoney.tracker.extras.ExtrasStore.importJson(b.extras)
             null
         } catch (e: Exception) { "Restore failed, your existing data was kept." }
     }

@@ -88,6 +88,9 @@ fun MainNav(vm: AppViewModel) {
             composable("calendar") { CalendarScreen(vm, ::go, back) }
             composable("reports") { ReportsScreen(vm, back) }
             composable("backup") { BackupScreen(vm, back) }
+            composable("todo") { TodoScreen(back) }
+            composable("bills") { BillsScreen(back) }
+            composable("shopping") { ShoppingScreen(back) }
         }
     }
     if (addMenu) AddMenuDialog({ addMenu = false; go(it) }) { addMenu = false }

@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.mymoney.tracker.extras.ExtrasStore
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -104,6 +105,21 @@ fun DashboardScreen(vm: AppViewModel) {
                 SectionCard {
                     health.warnings.forEach { Text("• $it", modifier = Modifier.padding(vertical = 2.dp)) }
                     health.savingsRatePct?.let { Text("Savings rate $it%  ·  EMI burden ${health.emiBurdenPct ?: 0}%", style = MaterialTheme.typography.bodySmall) }
+                }
+            }
+        }
+        item {
+            val todos by ExtrasStore.todos.collectAsState()
+            val bills by ExtrasStore.bills.collectAsState()
+            val shop by ExtrasStore.shop.collectAsState()
+            val now = java.time.LocalDate.now()
+            val soon = bills.count { java.time.temporal.ChronoUnit.DAYS.between(now, ExtrasStore.nextDue(it, now)) <= 7 }
+            Reveal(4) {
+                SectionCard {
+                    Text("Coming up", style = MaterialTheme.typography.titleMedium)
+                    StatRow("Open tasks", todos.count { !it.done }.toString())
+                    StatRow("Bills due within 7 days", soon.toString())
+                    StatRow("Shopping items left", shop.count { !it.done }.toString())
                 }
             }
         }
@@ -296,6 +312,9 @@ fun LoansScreen(vm: AppViewModel, nav: (String) -> Unit) {
 @Composable
 fun MoreScreen(nav: (String) -> Unit) {
     val items = listOf(
+        Triple("To-do list", "todo", Icons.Default.CheckCircle),
+        Triple("Bills & due dates", "bills", Icons.Default.Notifications),
+        Triple("Shopping list", "shopping", Icons.Default.ShoppingCart),
         Triple("EMI Manager", "tab_loans", Icons.Default.CreditCard),
         Triple("Loan Manager", "tab_loans", Icons.Default.AccountBalance),
         Triple("Friend Debts", "debts", Icons.Default.People),

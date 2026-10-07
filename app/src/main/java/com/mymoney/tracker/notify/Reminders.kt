@@ -44,6 +44,7 @@ class ReminderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
         if (!s.notificationsEnabled || !s.onboardingDone) return Result.success()
         val sym = s.currencySymbol
         val today = LocalDate.now()
+        com.mymoney.tracker.extras.ExtrasStore.notifyDue(applicationContext, today)
         val target = today.plusDays(s.defaultRemindDaysBefore.toLong())
         val data = db.loadAll()
 
