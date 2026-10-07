@@ -84,6 +84,15 @@ fun DashboardScreen(vm: AppViewModel) {
                 }
             }
         }
+        if (s.categoryTotals.any { it.value > 0L }) item {
+            Reveal(2) {
+                SectionCard {
+                    Text("Where your money went", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(12.dp))
+                    DonutChart(s.categoryTotals.filter { it.value > 0L }.toList().sortedByDescending { it.second })
+                }
+            }
+        }
         item {
             Reveal(2) {
                 SectionCard {
@@ -168,10 +177,11 @@ fun TransactionsScreen(vm: AppViewModel, nav: (String) -> Unit) {
                     if (list.isEmpty()) item { EmptyHint("No expenses found") }
                     items(list, key = { it.id }) { e ->
                         ListItem(
+                            leadingContent = { CategoryBadge(catName[e.categoryId] ?: "Other") },
                             headlineContent = { Text(e.description.ifBlank { catName[e.categoryId] ?: "Expense" }) },
                             supportingContent = { Text("${catName[e.categoryId] ?: ""} · ${e.paymentMethod} · ${dateStr(e.date)}") },
                             trailingContent = { Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(m(e.amount))
+                                Text("−" + m(e.amount), color = MaterialTheme.colorScheme.error)
                                 IconButton(onClick = { deleteExp = e }) { Icon(Icons.Default.Delete, "Delete expense") }
                             } },
                             modifier = Modifier.clickable { nav("expense_form/${e.id}") })
@@ -185,7 +195,7 @@ fun TransactionsScreen(vm: AppViewModel, nav: (String) -> Unit) {
                             headlineContent = { Text(i.name + if (i.status == ItemStatus.PAUSED) " (paused)" else "") },
                             supportingContent = { Text("${frequencyLabels[i.frequency]} · from ${dateStr(i.startDate)}" + (i.endDate?.let { " to ${dateStr(it)}" } ?: "")) },
                             trailingContent = { Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(m(i.amount))
+                                Text("+" + m(i.amount), color = Positive)
                                 IconButton(onClick = { vm.run { vm.db.incomeDao().update(i.copy(status = if (i.status == ItemStatus.PAUSED) ItemStatus.ACTIVE else ItemStatus.PAUSED)) } }) {
                                     Icon(if (i.status == ItemStatus.PAUSED) Icons.Default.PlayArrow else Icons.Default.Pause,
                                         if (i.status == ItemStatus.PAUSED) "Resume income" else "Pause income") }

@@ -152,11 +152,14 @@ fun StatRow(label: String, value: String, bold: Boolean = false) =
     }
 
 @Composable
-fun SectionCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) =
-    Card(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(20.dp), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
-        Column(Modifier.padding(16.dp), content = content)
+fun SectionCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Reveal(0) {
+        Card(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+            shape = RoundedCornerShape(20.dp), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
+            Column(Modifier.padding(16.dp), content = content)
+        }
     }
+}
 
 /** Runs from 0 up to [target] when first shown, and animates again whenever [target] changes. */
 @Composable
