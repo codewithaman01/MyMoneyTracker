@@ -133,6 +133,7 @@ fun TransactionsScreen(vm: AppViewModel, nav: (String) -> Unit) {
     var tab by remember { mutableIntStateOf(0) }
     var query by remember { mutableStateOf("") }
     var catFilter by remember { mutableStateOf("All") }
+    var thisMonth by remember { mutableStateOf(false) }
     val cats by vm.categories.collectAsState()
     val expenses by vm.expenses.collectAsState()
     val incomes by vm.incomes.collectAsState()
@@ -152,11 +153,15 @@ fun TransactionsScreen(vm: AppViewModel, nav: (String) -> Unit) {
         if (tab == 0) Box(Modifier.padding(12.dp, 4.dp)) {
             Dropdown("Category", listOf("All") + cats.map { it.name }, catFilter) { catFilter = if (it == 0) "All" else cats[it - 1].name }
         }
+        if (tab == 0) Row(Modifier.padding(12.dp, 0.dp)) {
+            FilterChip(selected = thisMonth, onClick = { thisMonth = !thisMonth }, label = { Text("This month only") })
+        }
         LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {
             when (tab) {
                 0 -> {
                     val list = expenses.filter {
                         (catFilter == "All" || catName[it.categoryId] == catFilter) &&
+                        (!thisMonth || YearMonth.from(java.time.LocalDate.ofEpochDay(it.date)) == YearMonth.now()) &&
                             (query.isBlank() || it.description.contains(query, true) || (catName[it.categoryId] ?: "").contains(query, true) ||
                                 it.paymentMethod.contains(query, true) || paiseToField(it.amount).contains(query))
                     }

@@ -20,6 +20,8 @@ private val timeoutLabels = listOf("Every time", "After 1 minute", "After 5 minu
 private val timeoutValues = listOf(0, 1, 5, 15, -1)
 private val remindLabels = listOf("Same day", "1 day before", "3 days before", "7 days before")
 private val remindValues = listOf(0, 1, 3, 7)
+private val hourLabels = listOf("7:00 AM", "9:00 AM", "12:00 PM", "6:00 PM", "8:00 PM")
+private val hourValues = listOf(7, 9, 12, 18, 20)
 
 @Composable
 private fun SwitchRow(label: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) =
@@ -67,7 +69,13 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit) {
             SwitchRow("Payment reminders (on this phone)", s?.notificationsEnabled == true) { enableNotifications(it) }
             Dropdown("Remind me", remindLabels, remindLabels[remindValues.indexOf(s?.defaultRemindDaysBefore).coerceAtLeast(0)]) { i ->
                 vm.saveSettings { it.copy(defaultRemindDaysBefore = remindValues[i]) } }
-            Text("Checked once a day around 9:00 for EMI, loan, rent, bills, debts, salary, budgets and savings.", style = MaterialTheme.typography.bodySmall)
+            var hour by remember { mutableStateOf(com.mymoney.tracker.extras.ExtrasStore.reminderHour(ctx)) }
+            Dropdown("Reminder time", hourLabels, hourLabels[hourValues.indexOf(hour).coerceAtLeast(0)]) { i ->
+                hour = hourValues[i]
+                com.mymoney.tracker.extras.ExtrasStore.setReminderHour(ctx, hourValues[i])
+                com.mymoney.tracker.notify.ReminderScheduler.schedule(ctx)
+            }
+            Text("Checked once a day around the reminder time for to-dos, bills, friend debts, EMI, loans, rent, salary, budgets and savings.", style = MaterialTheme.typography.bodySmall)
             OutlinedButton(onClick = { Notifier.show(ctx, 1, "Test reminder", "Reminders are working") }, modifier = Modifier.fillMaxWidth()) { Text("Send a test reminder") }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             Text("Appearance", style = MaterialTheme.typography.titleMedium)

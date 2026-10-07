@@ -89,7 +89,7 @@ fun MainNav(vm: AppViewModel) {
             composable("reports") { ReportsScreen(vm, back) }
             composable("backup") { BackupScreen(vm, back) }
             composable("todo") { TodoScreen(back) }
-            composable("bills") { BillsScreen(back) }
+            composable("bills") { BillsScreen(vm, back) }
             composable("shopping") { ShoppingScreen(back) }
         }
     }

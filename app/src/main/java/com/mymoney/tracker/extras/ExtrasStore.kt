@@ -11,7 +11,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 
-data class TodoItem(val id: Long, val title: String, val due: String = "", val done: Boolean = false, val remind: Boolean = true)
+data class TodoItem(val id: Long, val title: String, val due: String = "", val done: Boolean = false, val remind: Boolean = true, val repeat: String = "")
 data class Bill(val id: Long, val name: String, val amount: Long = 0L, val dueDay: Int = 1, val remindDays: Int = 2, val paidMonth: String = "")
 data class ShopItem(val id: Long, val name: String, val done: Boolean = false)
 
@@ -45,7 +45,7 @@ object ExtrasStore {
         try {
             val o = JSONObject(text)
             _todos.value = o.optJSONArray("todos").mapObjs {
-                TodoItem(it.getLong("id"), it.getString("title"), it.optString("due", ""), it.optBoolean("done", false), it.optBoolean("remind", true)) }
+                TodoItem(it.getLong("id"), it.getString("title"), it.optString("due", ""), it.optBoolean("done", false), it.optBoolean("remind", true), it.optString("repeat", "")) }
             _bills.value = o.optJSONArray("bills").mapObjs {
                 Bill(it.getLong("id"), it.getString("name"), it.optLong("amount", 0L), it.optInt("dueDay", 1), it.optInt("remindDays", 2), it.optString("paidMonth", "")) }
             _shop.value = o.optJSONArray("shop").mapObjs {
@@ -56,7 +56,7 @@ object ExtrasStore {
     fun exportJson(): String {
         val o = JSONObject()
         val t = JSONArray()
-        _todos.value.forEach { t.put(JSONObject().put("id", it.id).put("title", it.title).put("due", it.due).put("done", it.done).put("remind", it.remind)) }
+        _todos.value.forEach { t.put(JSONObject().put("id", it.id).put("title", it.title).put("due", it.due).put("done", it.done).put("remind", it.remind).put("repeat", it.repeat)) }
         val b = JSONArray()
         _bills.value.forEach { b.put(JSONObject().put("id", it.id).put("name", it.name).put("amount", it.amount).put("dueDay", it.dueDay).put("remindDays", it.remindDays).put("paidMonth", it.paidMonth)) }
         val s = JSONArray()
@@ -69,7 +69,16 @@ object ExtrasStore {
     private fun persist() { prefs?.edit()?.putString("data", exportJson())?.apply() }
 
     // ---- to-do
-    fun addTodo(title: String, due: String, remind: Boolean) { _todos.value = _todos.value + TodoItem(newId(), title.trim(), due, false, remind); persist() }
+    fun addTodo(title: String, due: String, remind: Boolean, repeat: String = "") { _todos.value = _todos.value + TodoItem(newId(), title.trim(), due, false, remind, repeat); persist() }
+    /** Finishing a repeating task moves it to its next date instead of ticking it off. */
+    fun completeRecurring(t: TodoItem, today: LocalDate) {
+        val d = runCatching { LocalDate.parse(t.due) }.getOrNull()
+        val base = if (d != null && d.isAfter(today)) d else today
+        val next = when (t.repeat) { "DAILY" -> base.plusDays(1); "WEEKLY" -> base.plusWeeks(1); else -> base.plusMonths(1) }
+        updateTodo(t.copy(due = next.toString()))
+    }
+    fun reminderHour(ctx: Context): Int { init(ctx); return prefs?.getInt("hour", 9) ?: 9 }
+    fun setReminderHour(ctx: Context, h: Int) { init(ctx); prefs?.edit()?.putInt("hour", h)?.apply() }
     fun updateTodo(t: TodoItem) { _todos.value = _todos.value.map { if (it.id == t.id) t else it }; persist() }
     fun deleteTodo(id: Long) { _todos.value = _todos.value.filter { it.id != id }; persist() }
 

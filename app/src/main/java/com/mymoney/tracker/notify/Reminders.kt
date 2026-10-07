@@ -7,6 +7,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.*
 import com.mymoney.tracker.data.AppDatabase
+import com.mymoney.tracker.data.entity.DebtDirection
 import com.mymoney.tracker.data.entity.EventType
 import com.mymoney.tracker.data.loadAll
 import com.mymoney.tracker.domain.EventBuilder
@@ -57,6 +58,16 @@ class ReminderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             Notifier.show(applicationContext, 1000 + i, e.title, "$verb $whenText$amt")
         }
 
+        // Gentle weekly nudge for money friends still owe you
+        val debtPaid = db.debtDao().allPayments()
+        db.debtDao().snapshot().filter { it.direction == DebtDirection.OWED_TO_ME }.forEach { d ->
+            val left = d.amount - debtPaid.filter { it.debtId == d.id }.sumOf { it.amount }
+            val age = today.toEpochDay() - d.date
+            if (left > 0L && age >= 7L && age % 7L == 0L)
+                Notifier.show(applicationContext, 8000 + (d.id % 500).toInt(), "Money to collect",
+                    "${d.person} still owes you ${Money.format(left, sym)} ($age days)")
+        }
+
         // Budget warnings for the current month (one notification per category, replaced daily)
         val ym = YearMonth.now()
         val summary = MonthlyEngine.summarize(ym, data.inputs, today)
@@ -78,10 +89,10 @@ class ReminderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
 object ReminderScheduler {
     fun schedule(ctx: Context) {
         val now = LocalDateTime.now()
-        var next = now.toLocalDate().atTime(9, 0)
+        var next = now.toLocalDate().atTime(com.mymoney.tracker.extras.ExtrasStore.reminderHour(ctx), 0)
         if (!next.isAfter(now)) next = next.plusDays(1)
         val req = PeriodicWorkRequestBuilder<ReminderWorker>(24, TimeUnit.HOURS)
             .setInitialDelay(Duration.between(now, next).toMinutes(), TimeUnit.MINUTES).build()
-        WorkManager.getInstance(ctx).enqueueUniquePeriodicWork("daily_reminders", ExistingPeriodicWorkPolicy.KEEP, req)
+        WorkManager.getInstance(ctx).enqueueUniquePeriodicWork("daily_reminders", ExistingPeriodicWorkPolicy.UPDATE, req)
     }
 }

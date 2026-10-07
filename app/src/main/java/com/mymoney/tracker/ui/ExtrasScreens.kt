@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.mymoney.tracker.data.entity.Expense
 import com.mymoney.tracker.domain.Money
 import com.mymoney.tracker.extras.Bill
 import com.mymoney.tracker.extras.ExtrasStore
@@ -25,6 +26,9 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
 private val shortDate = DateTimeFormatter.ofPattern("dd MMM")
+private val repeatLabels = listOf("Never", "Daily", "Weekly", "Monthly")
+private val repeatValues = listOf("", "DAILY", "WEEKLY", "MONTHLY")
+private fun repeatText(r: String) = when (r) { "DAILY" -> " · repeats daily"; "WEEKLY" -> " · repeats weekly"; "MONTHLY" -> " · repeats monthly"; else -> "" }
 
 // ===================== TO-DO =====================
 @Composable
@@ -40,51 +44,66 @@ fun TodoScreen(back: () -> Unit) {
                 val d = runCatching { LocalDate.parse(t.due) }.getOrNull()
                 val overdue = !t.done && d != null && d.isBefore(today)
                 ListItem(
-                    leadingContent = { Checkbox(checked = t.done, onCheckedChange = { ExtrasStore.updateTodo(t.copy(done = it)) }) },
+                    leadingContent = { Checkbox(checked = t.done, onCheckedChange = { if (it && t.repeat.isNotBlank()) ExtrasStore.completeRecurring(t, today) else ExtrasStore.updateTodo(t.copy(done = it)) }) },
                     headlineContent = { Text(t.title, textDecoration = if (t.done) TextDecoration.LineThrough else null) },
                     supportingContent = if (d != null) ({
-                        Text(if (overdue) "Overdue · ${d.format(shortDate)}" else if (d == today) "Today" else d.format(shortDate),
+                        Text((if (overdue) "Overdue · ${d.format(shortDate)}" else if (d == today) "Today" else d.format(shortDate)) + repeatText(t.repeat),
                             color = if (overdue) MaterialTheme.colorScheme.error else Color.Unspecified)
                     }) else null,
                     trailingContent = { IconButton(onClick = { delete = t }) { Icon(Icons.Default.Delete, "Delete task") } })
             }
         }
     }
-    if (adding) TodoDialog(onDone = { title, due, remind -> ExtrasStore.addTodo(title, due, remind) }, onDismiss = { adding = false })
+    if (adding) TodoDialog(onDone = { title, due, remind, rep -> ExtrasStore.addTodo(title, due, remind, rep) }, onDismiss = { adding = false })
     delete?.let { t -> ConfirmDialog("Delete task?", t.title, { ExtrasStore.deleteTodo(t.id) }) { delete = null } }
 }
 
 @Composable
-private fun TodoDialog(onDone: (String, String, Boolean) -> Unit, onDismiss: () -> Unit) {
+private fun TodoDialog(onDone: (String, String, Boolean, String) -> Unit, onDismiss: () -> Unit) {
     var title by remember { mutableStateOf("") }
     var due by remember { mutableStateOf<LocalDate?>(null) }
     var remind by remember { mutableStateOf(true) }
+    var rep by remember { mutableStateOf(0) }
     AlertDialog(onDismissRequest = onDismiss, title = { Text("New task") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 TextF("Task", title, { title = it })
                 DateField("Due date (optional)", due, { due = it }, clearable = true)
+                Dropdown("Repeat", repeatLabels, repeatLabels[rep]) { rep = it }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Remind me at 9 AM", Modifier.weight(1f))
+                    Text("Remind me (time is in Settings)", Modifier.weight(1f))
                     Switch(checked = remind, onCheckedChange = { remind = it })
                 }
             }
         },
         confirmButton = { TextButton(onClick = {
-            if (title.isNotBlank()) { onDone(title, due?.toString() ?: "", remind); onDismiss() }
+            if (title.isNotBlank()) { onDone(title, due?.toString() ?: "", remind, repeatValues[rep]); onDismiss() }
         }) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }
 
 // ===================== BILLS =====================
 @Composable
-fun BillsScreen(back: () -> Unit) {
+fun BillsScreen(vm: AppViewModel, back: () -> Unit) {
     val bills by ExtrasStore.bills.collectAsState()
+    val cats by vm.categories.collectAsState()
     var adding by remember { mutableStateOf(false) }
     var edit by remember { mutableStateOf<Bill?>(null) }
     var delete by remember { mutableStateOf<Bill?>(null) }
     val today = LocalDate.now()
     val thisMonth = YearMonth.from(today).toString()
+    fun togglePaid(b: Bill, paid: Boolean) {
+        ExtrasStore.setBillPaid(b.id, !paid, thisMonth)
+        if (paid) {
+            vm.message.value = "Marked unpaid. If an expense was added, delete it in Transactions."
+            return
+        }
+        if (b.amount <= 0L) return
+        val cat = cats.firstOrNull { it.name == "Bills" } ?: cats.firstOrNull { it.name == "Other" } ?: cats.firstOrNull() ?: return
+        vm.run("Marked paid and added to your expenses") {
+            vm.db.expenseDao().insert(Expense(amount = b.amount, categoryId = cat.id, date = today.toEpochDay(), description = b.name))
+        }
+    }
     ScreenScaffold("Bills & due dates", back, actions = { TextButton(onClick = { adding = true }) { Text("Add") } }) {
         LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
             if (bills.isEmpty()) item { EmptyHint("No bills yet.\nAdd rent, electricity, internet, insurance…") }
@@ -106,7 +125,7 @@ fun BillsScreen(back: () -> Unit) {
                     }
                     Text(status, color = if (paid) MaterialTheme.colorScheme.primary else if (days < 0) MaterialTheme.colorScheme.error else Color.Unspecified)
                     Row {
-                        TextButton(onClick = { ExtrasStore.setBillPaid(b.id, !paid, thisMonth) }) { Text(if (paid) "Mark unpaid" else "Mark paid") }
+                        TextButton(onClick = { togglePaid(b, paid) }) { Text(if (paid) "Mark unpaid" else "Mark paid") }
                         TextButton(onClick = { edit = b }) { Text("Edit") }
                         TextButton(onClick = { delete = b }) { Text("Delete") }
                     }
