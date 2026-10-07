@@ -25,9 +25,17 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
         scope.launch {
             try {
                 val text = producer()
-                withContext(Dispatchers.IO) { ctx.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) } }
+                withContext(Dispatchers.IO) {
+                    // Some file apps (Drive, some managers) refuse mode "wt", so fall back to plain "w".
+                    val out = try { ctx.contentResolver.openOutputStream(uri, "wt") } catch (e: Exception) { null }
+                        ?: ctx.contentResolver.openOutputStream(uri, "w")
+                        ?: ctx.contentResolver.openOutputStream(uri)
+                    (out ?: throw java.io.IOException("Cannot open the file")).use { it.write(text.toByteArray()) }
+                }
                 vm.message.value = "Backup saved"
-            } catch (e: Exception) { vm.message.value = "Could not save the backup file" }
+            } catch (e: Throwable) {
+                vm.message.value = "Could not save the backup: ${e.javaClass.simpleName} ${e.message ?: ""}".take(160)
+            }
         }
     }
     val jsonOut = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { write(it) { vm.backupJson() } }
