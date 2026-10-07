@@ -26,6 +26,9 @@ fun AppRoot(vm: AppViewModel) {
     val s by vm.settings.collectAsState()
     val locked by vm.locked.collectAsState()
     val cfg = s
+    val appCtx = androidx.compose.ui.platform.LocalContext.current
+    var crash by remember { mutableStateOf(com.mymoney.tracker.CrashLog.read(appCtx)) }
+    val clip = androidx.compose.ui.platform.LocalClipboardManager.current
     Fmt.symbol = cfg?.currencySymbol ?: "₹"
     val dark = cfg?.darkMode ?: false
     AppTheme(dark) {
@@ -36,6 +39,19 @@ fun AppRoot(vm: AppViewModel) {
                 cfg.lockEnabled && locked && vm.pin.hasPin() -> LockScreen(vm)
                 else -> MainNav(vm)
             }
+        }
+        crash?.let { text ->
+            AlertDialog(onDismissRequest = { }, title = { Text("The app stopped last time") },
+                text = { Column {
+                    Text("Tap Copy report and send it to whoever is helping you fix the app.", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text(text.take(700), style = MaterialTheme.typography.bodySmall)
+                } },
+                confirmButton = { TextButton(onClick = {
+                    clip.setText(androidx.compose.ui.text.AnnotatedString(text))
+                    com.mymoney.tracker.CrashLog.clear(appCtx); crash = null
+                }) { Text("Copy report") } },
+                dismissButton = { TextButton(onClick = { com.mymoney.tracker.CrashLog.clear(appCtx); crash = null }) { Text("Dismiss") } })
         }
     }
 }
@@ -49,7 +65,7 @@ fun MainNav(vm: AppViewModel) {
     val snack = remember { SnackbarHostState() }
     val msg by vm.message.collectAsState()
     var addMenu by remember { mutableStateOf(false) }
-    LaunchedEffect(msg) { msg?.let { snack.showSnackbar(it); vm.message.value = null } }
+    LaunchedEffect(msg) { msg?.let { snack.showSnackbar(it, duration = SnackbarDuration.Long); vm.message.value = null } }
 
     fun go(r: String) { if (r.startsWith("tab_")) nav.navigate(r) { popUpTo("tab_dashboard"); launchSingleTop = true } else nav.navigate(r) }
     val back: () -> Unit = { nav.popBackStack() }
