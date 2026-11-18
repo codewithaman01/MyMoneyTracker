@@ -1,50 +1,67 @@
-# My Money Tracker (offline Android finance app)
+# FinGlass — offline personal finance app (glassmorphism)
 
-100% offline: no INTERNET permission in the manifest, no network libraries, no cloud, no login.
+React + TypeScript + Capacitor. **All data stays on the phone** (IndexedDB inside the Android app). No server.
+For financial organisation and education only — not regulated advice.
 
-## Build status
-- Part 1: project setup, Room database (16 tables), DAOs, calculation engine, loan/EMI math, unit tests.
-- Part 2: Compose UI. Onboarding (Start From Zero / Load Sample Data), dashboard, transactions with search, budgets, EMI + loan managers with payment history, debts, savings goals, monthly plan, future changes, settings, + Add menu.
-- Part 3 (this zip): app lock (BiometricPrompt + salted-hash PIN in EncryptedSharedPreferences), local reminders (WorkManager, daily), calendar, reports/charts, JSON/CSV backup + restore via file picker, full settings.
+## Features
+Income (received vs expected, recurring) · Expenses (categories, methods, search, CSV) · Budgets with alerts ·
+Debts/EMI with avalanche & snowball planner and shown assumptions · Goals · Investments (manual values) ·
+Dashboard (income vs expenses, categories, savings trend, budgets, debt progress, allocation) · Insights (historical / current / estimate labels,
+forecast only with ≥ 6 months of data) · Gemini AI assistant using local tools · EMI reminders · JSON backup/restore.
 
-NOTE: Parts 1 and 2 were written without access to the Android SDK, so it has not been compiled yet.. Expect to
-paste back any build error and it will be fixed in the next part.
+## Added from My Money Tracker (same stack: React + TypeScript + Dexie + Capacitor)
+| My Money Tracker | In FinGlass |
+|---|---|
+| Dashboard "remaining balance", health warnings, month navigation | Home → **Monthly plan** card (+ budgets now count recurring and EMI spend) |
+| Monthly plan / forecast 1-120 months | More → **Monthly plan** |
+| Recurring income (any frequency, end date, pause) | More → **Income plans** |
+| Recurring payments (rent, bills, daily travel Mon-Sat, custom intervals) | More → **Recurring payments** |
+| Future salary / rent / EMI changes | More → **Future changes** |
+| EMI Manager (schedule, paid / pending / skip / partial, completion, stats) | More → **EMI Manager** |
+| Loan Manager (reducing / flat / unknown, schedule, principal vs interest) | More → **Loan Manager** |
+| Friend debts (I owe / owed to me, part payments) | More → **Friend debts** |
+| Savings goals add / withdraw | Goals → **Contribute / Withdraw** |
+| Custom expense categories, category filter | Expenses form → "＋ New…", category filter |
+| Calendar of dues | More → **Calendar** |
+| Reports (6 charts, 1-60 months) | More → **Reports** |
+| App lock (PIN, lockout, fingerprint / face, timeout), screenshot block | Settings → **Security** (native app) |
+| Local reminders (EMI, loan, rent, bills, debts, income, goals, budgets 75%+) | Settings → **Reminders** |
+| Onboarding (start from zero / sample, PIN) | First launch (skipped if you already have data) |
+| Validated restore, CSV export of every table, dark / light | Settings |
+| "+ Add" quick menu | Floating **＋ Add** button |
 
-## Open and run
-1. Install Android Studio (Koala or newer). Open the `MyMoneyTracker` folder. Let Gradle sync (needs internet once, for downloading build tools only).
-2. Run tests: right-click `app/src/test` > Run Tests (checks the salary/rent/EMI examples from the spec).
-3. Run on phone: enable Developer options + USB debugging, connect, press Run.
-4. Build APK: Build > Build Bundle(s)/APK(s) > Build APK(s). File: `app/build/outputs/apk/debug/app-debug.apk`. Copy to phone and install.
+Notes: plan figures come from Income plans, Recurring payments, expense *entries*, EMIs, loans and friend debts. Do not enter the same
+rent or salary both as a plan and as entries, or it is counted twice. Loan rate and EMI are never assumed: leave them empty and the loan
+shows "enter the rate to build the schedule". Backups made by older FinGlass versions still restore. Kotlin backups from My Money Tracker are not importable.
 
-## Architecture
-UI (Compose) -> ViewModel -> Repository -> Room -> local storage.
-`domain/` is pure Kotlin: `MonthlyEngine` derives every dashboard/forecast number from raw rows. Nothing is stored as a total.
+Platform differences from the Kotlin app: the PIN hash is kept in the app's private storage (not the Android Keystore); notifications are scheduled
+for the next 60 days whenever the app is opened (no background worker) and cannot hide amounts on the lock screen, so amounts are left out unless you opt in;
+reminders, biometrics and screenshot blocking only work in the installed Android app.
 
-## Data conventions
-- Money = Long paise (no rounding errors). Dates = epochDay.
-- Tables: category, payment_method, income, expense, recurring_expense, emi, emi_payment, loan, loan_payment,
-  debt, debt_payment, budget, savings_goal, scheduled_change (future salary/rent/EMI changes), financial_event, user_settings.
-- Interest rate is nullable: the user enters it; nothing is hard-coded (TVS sample has rate = empty).
+## Run on your computer
+```bash
+npm install
+npm test          # 55 tests: EMI, payoff, cash flow, budgets, goals, forecast, plan engine, loans, lock, reminders, assistant tools
+npm run dev       # http://localhost:5173
+```
 
-## Security notes
-- PIN: never stored. Salted PBKDF2-SHA256 hash inside EncryptedSharedPreferences (Android Keystore key). 5 wrong tries = 30 s lockout, growing.
-- Biometric: BiometricPrompt (fingerprint/face). Android 11+ also accepts the phone screen lock; older versions fall back to the app PIN.
-- Screenshots / recent-apps preview are blocked (FLAG_SECURE). Notification amounts are hidden on the lock screen.
-- Backup files are plain JSON/CSV, not encrypted. They are only written where you pick.
-- No INTERNET permission, no analytics, no logging of financial data.
+## Git → Android APK
+```bash
+git init && git add . && git commit -m "FinGlass"
+git branch -M main
+git remote add origin https://github.com/<you>/finglass.git
+git push -u origin main
+```
+GitHub Actions (`.github/workflows/android.yml`) runs the tests, builds the web app, generates the Android project, and produces
+`app-debug.apk` under **Actions → latest run → Artifacts**. Push a tag (`git tag v1.0.0 && git push --tags`) to also attach it to a GitHub Release.
+On the phone: download the APK, allow “install unknown apps”, install.
 
-## Backup format
-JSON file `{app, version, exportedAt, settings, categories, ..., scheduledChanges}`. Restore validates the whole file first and runs in one transaction: if anything fails, existing data is untouched. This phone's lock settings are kept.
+Local build (needs Android Studio / JDK 17): `npm run build && npx cap add android && npx cap sync android && npx cap open android`
 
-## Not implemented (honest list)
-- "Start of financial month" setting (reports use calendar months).
-- Multiple currencies (one symbol only).
-- Pagination: lists use LazyColumn but load all rows; fine for thousands of rows.
-- Notifications fire once a day (~9:00); Android may delay WorkManager jobs when battery saver is on.
+## AI assistant
+Settings → paste your Google Gemini API key. The key is stored on the phone only. The model can call 9 whitelisted tools
+(`src/lib/tools.ts`); every number comes from `src/lib/calc.ts`. Only small tool results are sent to Google. Use a restricted key you can revoke.
 
-## Get the APK without Android Studio (GitHub Actions)
-1. Create a free GitHub account and a new PRIVATE repository.
-2. Upload the contents of this folder (including the hidden `.github` folder) to the repo.
-3. Open the repo's Actions tab > "Build APK" > wait ~5-8 minutes.
-4. Open the finished run > Artifacts > download `MyMoneyTracker-apk` (a zip containing app-debug.apk).
-5. Unzip, copy app-debug.apk to the phone, tap it, allow "install unknown apps".
+## Important
+- Data is lost if you uninstall the app or lose the phone — use **Settings → Export backup**.
+- The debug APK is debug-signed: fine for personal use, not for the Play Store.
