@@ -1,0 +1,30 @@
+name: Build Android APK
+on:
+  push: { branches: [main], tags: ["v*"] }
+  workflow_dispatch: {}
+permissions: { contents: write }
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npx cap add android
+      - name: Allow notifications on Android 13+
+        run: sed -i 's#<application#<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    <application#' android/app/src/main/AndroidManifest.xml
+      - name: Biometric unlock needs Android 6+ (API 23)
+        run: sed -i 's/minSdkVersion = 2[0-2]/minSdkVersion = 23/' android/variables.gradle
+      - run: npx cap sync android
+      - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with: { name: finglass-debug-apk, path: android/app/build/outputs/apk/debug/app-debug.apk }
+      - name: Attach APK to release (tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with: { files: android/app/build/outputs/apk/debug/app-debug.apk }
